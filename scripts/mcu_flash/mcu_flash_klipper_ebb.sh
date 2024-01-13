@@ -12,7 +12,7 @@ mv ~/printer_data/config/scripts/mcu_flash/config/klipper/config.make.klipper.eb
 make clean KCONFIG_CONFIG=config.make.klipper.ebb
 make menuconfig KCONFIG_CONFIG=config.make.klipper.ebb
 make KCONFIG_CONFIG=config.make.klipper.ebb
-#python3 ~/katapult/scripts/flashtool.py -i can0 -f ~/klipper/out/klipper.bin -u 98ba9ff4d330
+python3 ~/katapult/scripts/flashtool.py -i can0 -f ~/klipper/out/klipper.bin -u 98ba9ff4d330
 mv ~/klipper/config.make.klipper.ebb ~/printer_data/config/scripts/mcu_flash/config/klipper/
 
 sudo systemctl start klipper

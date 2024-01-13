@@ -1,0 +1,487 @@
+################
+[gcode_macro LED_STAT_RESTORE_PLD]
+description: Load last active effects
+gcode:
+    {% set last = printer["gcode_macro VORON_LED_EFFECT"].last %}
+    {% set actv = printer["gcode_macro VORON_LED_EFFECT"].actv %}
+    {% set act_buff = printer["gcode_macro VORON_LED_EFFECT"].actv %}
+    
+    # stop all effects
+    STOP_LED_EFFECTS
+
+    # apply effects from past
+    {% for effect in last %}
+        SET_LED_EFFECT EFFECT={effect}
+    {% endfor %}
+
+    # update active effects with applied last effects
+    SET_GCODE_VARIABLE MACRO=VORON_LED_EFFECT VARIABLE=actv VALUE="{last}"
+    SET_GCODE_VARIABLE MACRO=VORON_LED_EFFECT VARIABLE=last VALUE="{actv}"
+    
+    #{% for led in last %}
+        #RESPOND PREFIX="{loop.index-1}:{actv[loop.index-1]}"
+        #RESPOND PREFIX="{actv[loop.index-1]}"
+        #SET_GCODE_VARIABLE MACRO=VORON_LED_EFFECT VARIABLE=actv VALUE='["none","none","none",]'
+    #{% endfor %}
+
+[gcode_macro LED_STAT_SET_OLD]
+description: Load last active effects
+gcode:
+    {% set state = params.STATE|default("homing") %}
+    {% set effects = printer["gcode_macro VORON_LED_EFFECT"].status_effects[state] %}
+    {% set last = printer["gcode_macro VORON_LED_EFFECT"].last %}
+    {% set actv = printer["gcode_macro VORON_LED_EFFECT"].actv %}
+    
+    SET_GCODE_VARIABLE MACRO=VORON_LED_EFFECT VARIABLE=last VALUE="{actv}"
+
+    # stop all effects
+    STOP_LED_EFFECTS
+
+    {% for effect in effects %}
+        RESPOND PREFIX="{loop.index-1}:{effects[loop.index-1]}"
+        SET_LED_EFFECT EFFECT={effect}
+        #RESPOND PREFIX="{actv[loop.index-1]}"
+        #SET_GCODE_VARIABLE MACRO=VORON_LED_EFFECT VARIABLE=actv VALUE='["none","none","none",]'
+    {% endfor %}
+
+    SET_GCODE_VARIABLE MACRO=VORON_LED_EFFECT VARIABLE=actv VALUE="{effects}"
+
+
+
+# Macros for setting the status leds on the Voron StealthBurner toolhead (or for any neopixel-type leds).
+#
+# Use this file for the standard setup with one logo LED and two nozzle LEDs.
+# Thank you to Urufu_Shinjiro and ChristianN for providing this file.
+#
+# You will need to configure a neopixel (or other addressable led, such as dotstar). See
+# https://www.klipper3d.org/Config_Reference.html#neopixel for configuration details.
+
+
+#####################################
+#           INSTRUCTIONS            #
+#####################################
+# How to use all this stuff:
+#
+#     1.  Copy this .cfg file into your Klipper config directory and then add [include stealthburner_leds.cfg]
+#         to the top of your printer.cfg in order for register the LEDs and macros with Klipper.
+#     2.  Define your LEDs by editing [neopixel sb_leds] below and entering the data pin from your control board
+#         as well as the color order.
+#
+#           Note: RGB and RGBW are different and must be defined explicitly in the color order. 
+#
+#                 RGBW LEDs will have a visible yellow-ish phosphor section to the chip.  If your LEDs do not have
+#                 this yellow portion, you have RGB LEDs.
+#
+#     3.  Save your config and restart Klipper.
+#
+#           Note: We set RED and BLUE to 1.0 to make it easier for users and supporters to detect 
+#                 misconfigurations or miswiring. The default color format is for Neopixels with a dedicated 
+#                 white LED. On startup, all three SB LEDs should light up.
+#
+#                 If you get random colors across your LEDs, change the color_order to GRB and restart. Then
+#                 omit the W for each suggested color_order in the next paragraph.
+#
+#                 If you get MAGENTA, your  color order is correct. If you get CYAN, you need to use RGBW. If
+#                 you get YELLOW, you need to use BRGW (note that BRG is only supported in the latest Klipper
+#                 version).
+#
+#     4.  Once you have confirmed that the LEDs are set up correctly, you must now decide where you want 
+#         these macros called up...which means adding them to your existing gcode macros.  NOTHING will happen
+#         unless you add the STATUS_????? macros to your existing gcode macros.  
+#
+#           Example: add STATUS_LEVELING to the beginning of your QGL gcode macro, and then add STATUS_READY 
+#                    to the end of it to set the logo LED and nozzle LEDs back to the `ready` state.
+#
+#           Example: add STATUS_CLEANING to the beginning of your nozzle-cleaning macro, and then STATUS_READY
+#                    to the end of it to return the LEDs back to `ready` state.
+#
+#     5.  Feel free to change colors of each macro, create new ones if you have a need to.  The macros provided below
+#         are just an example of what is possible.  If you want to try some more complex animations, you will most
+#         likely have to use WLED with Moonraker and a small micro-controller (please see the LED thread for help inside
+#         of the stealthburner_beta channel on Discord).
+#
+#####################################
+#       END INSTRUCTRUCTIONS        #
+#####################################
+
+
+[neopixel board_rgb]
+pin: gpio24
+#   The pin connected to the neopixel. This parameter must be provided.
+chain_count: 19
+#   The number of Neopixel chips that are "daisy chained" to the
+#   provided pin. The default is 1 (which indicates only a single
+#   Neopixel is connected to the pin).
+color_order: GRBW
+#   Set the pixel order required by the LED hardware. Options are GRB,
+#   RGB, GRBW, or RGBW. The default is GRB.
+initial_RED: 0.0
+initial_GREEN: 0.0
+initial_BLUE: 1.0
+initial_WHITE: 0.0
+#   Sets the initial LED color of the Neopixel. Each value should be
+#   between 0.0 and 1.0. The WHITE option is only available on RGBW
+#   LEDs. The default for each color is 0.#
+
+[neopixel display_rgb]
+pin: display:PA0
+chain_count: 1
+color_order: GRB
+initial_RED: 0.0
+initial_GREEN: 0.1
+initial_BLUE: 0
+
+##########################
+# LED Effects Animations #
+##########################
+
+##################
+## display effects ##
+##################
+[led_effect v0_display_homing]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:display_rgb (1)
+layers:
+        breathing  3 1 top (0.0, 0.6, 0.2)
+
+
+##################
+## frame effects ##
+##################
+
+[led_effect v0_bed_busy]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+    breathing  3 1 top (1,0,0)
+
+[led_effect v0_bed_cleaning]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+    breathing  3 1 top (0.0, 0.02, 0.5)
+
+[led_effect v0_bed_calibrating_z]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+        breathing  3 1 top (0.0, 0.0, 0.35)
+
+[led_effect v0_bed_heating]
+leds:
+    neopixel:board_rgb (19)
+autostart:                          false
+frame_rate:                         24
+layers:
+     breathing  3 1 top (1, 0.18, 0)
+
+[led_effect v0_bed_cooling]
+leds:
+    neopixel:board_rgb (19)
+autostart:                          false
+frame_rate:                         24
+layers:
+     breathing  3 1 top (0, 0, 1)
+
+[led_effect v0_bed_homing]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+        breathing  3 1 top (0.0, 0.6, 0.2)
+
+[led_effect v0_bed_leveling]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+        breathing  3 1 top (0.5, 0.1, 0.4)
+
+[led_effect v0_bed_meshing]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+        breathing  3 1 top (0.2, 1.0, 0.0)
+
+[led_effect v0_bed_printing]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+    gradient  0.3  1 add (0.3, 0.0, 0.0),(0.3, 0.3, 0.0),(0.3, 0.1, 0.0)
+
+[led_effect v0_bed_standby]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+        breathing  3 1 top (0.01, 0.01, 0.01)
+
+[led_effect v0_bed_part_ready]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+        breathing  3 1 top (0.0, 1.0, 0.0)
+
+[led_effect v0_bed_loading]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (19)
+layers:
+    strobe 1 0.5 top (1,0.3,0)
+
+####################
+## frame effects ##
+####################
+
+[led_effect v0_frame_heating]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (1-18)
+layers:
+        breathing  3 1 top (1.0, 0.18, 0.0, 0.0)
+
+[led_effect v0_frame_cooling]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (1-18)
+layers:
+        breathing  3 1 top (0.0, 0.0, 1.0, 0.1)
+
+[led_effect v0_frame_standby]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (1-18)
+layers:
+        breathing  3 1 top (0.6, 0.0, 0.0, 0.0)
+
+[led_effect v0_frame_part_ready]
+autostart:              false
+frame_rate:             24
+leds:
+    neopixel:board_rgb (1-18)
+layers:
+        breathing  3 1 top (0.6, 1.0, 0.0, 0.1)
+
+
+#####################
+## all led effects ##
+#####################
+
+[led_effect sb_critical_error]
+leds:
+    neopixel:board_rgb 
+layers:
+    strobe         1  1.5   add        (1.0,  1.0, 1.0)
+    breathing      2  0     difference (0.95, 0.0, 0.0)
+    static         1  0     top        (1.0,  0.0, 0.0)
+autostart:                             false
+frame_rate:                            24
+run_on_error:                          true
+
+
+[led_effect rainbow]
+leds:
+    neopixel:board_rgb (19) 
+autostart:                          true
+frame_rate:                         24
+layers:
+    gradient  0.3  1 add (0.3, 0.0, 0.0),(0.0, 0.3, 0.0),(0.0, 0.0, 0.3)
+
+
+
+
+#######################
+# LED Effects Statics #
+#######################
+
+[led_effect set_frame_leds]
+leds:
+    neopixel:board_rgb (1-18)
+   #neopixel:caselight
+autostart:                          true
+frame_rate:                         24
+layers:
+    static         0  0     top        (0.0,  0.0, 0.0, 1.0)
+
+[led_effect set_bed_leds]
+leds:
+    neopixel:board_rgb (19)
+autostart:                          false
+frame_rate:                         24
+layers:
+    static         0  0     top        (1.0,  1.0, 1.0)
+
+##############
+# The Macros #
+##############
+
+[gcode_macro Voron_Led]
+variable_last_effect_logo: "rainbow"
+variable_last_effect_nozzle: "set_frame_leds"
+variable_active_effect_logo: "NULL"
+variable_active_effect_nozzle: "NULL"
+gcode:
+  ECHO_VORON_LED_VARS
+
+#======================
+[gcode_macro ECHO_VORON_LED_VARS]
+description: Echo Voron LED variables to the console.
+gcode:
+  {% for var, value in printer["gcode_macro Voron_Led"].items() %}
+    {action_respond_info(var ~ ": " ~ value)}
+  {% endfor %}
+
+
+[gcode_macro set_bed_leds_off]
+gcode:
+    SET_LED_EFFECT EFFECT=set_bed_leds STOP=1
+
+[gcode_macro set_bed_leds_on]
+gcode:
+    SET_LED_EFFECT EFFECT=set_bed_leds
+
+[gcode_macro set_frame_leds_on]
+gcode:
+    SET_LED_EFFECT EFFECT=set_frame_leds
+
+[gcode_macro set_frame_leds_off]
+gcode:
+    SET_LED_EFFECT EFFECT=set_frame_leds STOP=1
+
+[gcode_macro status_restore]
+gcode:
+    {% set LOGO= printer["gcode_macro Voron_Led"].last_effect_logo %}    
+    {% set NOZZLE= printer["gcode_macro Voron_Led"].last_effect_nozzle %}    
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT={LOGO}
+    SET_LED_EFFECT EFFECT={NOZZLE}
+
+
+[gcode_macro status_off]
+gcode:
+    {% set LOGO= printer["gcode_macro Voron_Led"].last_effect_logo %}    
+    {% set NOZZLE= printer["gcode_macro Voron_Led"].last_effect_nozzle %}    
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=last_effect_logo VALUE={LOGO}
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"NULL"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=last_effect_nozzle VALUE={NOZZLE}
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"NULL"'
+
+    STOP_LED_EFFECTS
+
+[gcode_macro status_ready]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=rainbow
+    set_frame_leds_on
+
+
+[gcode_macro status_part_ready]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_frame_part_ready
+    SET_LED_EFFECT EFFECT=v0_bed_part_ready
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_frame_part_ready"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"v0_bed_part_ready"'
+
+[gcode_macro status_busy]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_busy
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_busy"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_heating]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_heating
+    SET_LED_EFFECT EFFECT=v0_frame_heating
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_heating"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"v0_frame_heating"'
+
+[gcode_macro status_cooling]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_cooling
+    SET_LED_EFFECT EFFECT=v0_frame_cooling
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_cooling"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"v0_frame_cooling"'
+
+[gcode_macro status_leveling]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_leveling
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_leveling"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_homing]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_homing
+    SET_LED_EFFECT EFFECT=v0_display_homing
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_homing"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_cleaning]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_cleaning
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_cleaning"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_meshing]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_meshing
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_meshing"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_calibrating_z]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_calibrating_z
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_calibrating_z"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_printing]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_printing
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_printing"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
+[gcode_macro status_loading]
+gcode:
+    STOP_LED_EFFECTS
+    SET_LED_EFFECT EFFECT=v0_bed_loading
+    set_frame_leds_on
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_logo VALUE='"v0_bed_loading"'
+    SET_GCODE_VARIABLE MACRO=Voron_Led VARIABLE=active_effect_nozzle VALUE='"set_nozzle_leds"'
+
