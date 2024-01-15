@@ -2,8 +2,8 @@
 sudo systemctl stop klipper
 sudo systemctl stop klipper-mcu
 
-cd ~/klipper/scripts
-python3 -c 'import flash_usb as u; u.enter_bootloader("/dev/serial/by-id/usb-Klipper_rp2040_45503571279022F8-if00")'
+#cd ~/klipper/scripts
+#python3 -c 'import flash_usb as u; u.enter_bootloader("/dev/serial/by-id/usb-Klipper_rp2040_45503571279022F8-if00")'
 
 cd ~/klipper
 
